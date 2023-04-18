@@ -1,5 +1,8 @@
-# TodoApp
-Todo App using Python Flask Framework with Mysql
+# Introduction
+This is a simple todo list app created using Python Flask.
 
-### App Images
-https://drive.google.com/drive/folders/15LJTlLKN1qJ7M6HOJGMypmARDsGZGSfH?usp=sharing
+Team members : 
+- Tanay Singh, PES2UG20CS364
+- Shriya Y S, PES2UG20CS333
+- Supreeth Shivakumar, PES2UG20CS357
+- Vignesh
