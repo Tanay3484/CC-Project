@@ -3,8 +3,9 @@
 #### Made using Python-Flask, MySQL, HTML, TailwindCSS and JavaScript
 
 ### Team Members
-- [Abhinav Sinha](https://github.com/AbhiSinha08)  
-- Raghav Bahety
+- Tanay Singh, PES2UG20CS364
+- Shriya Y S, PES2UG20CS333
+- Supreeth Shivakumar, PES2UG20CS357
 
 # Usage Guide
 This Project requires the following tools:
@@ -14,8 +15,7 @@ This Project requires the following tools:
 ## Getting Started
 ### Step 0: Clone the repository and cd into the project directory
 ```
-$ git clone https://github.com/AbhiSinha08/HotelManagementSystem.git
-$ cd HotelManagementSystem
+$ git clone https://github.com/Tanay3484/CC-Project.git
 ```
 ### Step 1: Install the dependencies listed in `requirements.txt`
 ```
@@ -31,4 +31,3 @@ Also, you can change the MySQL database name for the app to use.
 ### Step 4: Run
 Run the webapp by running either &nbsp; `flask run` &nbsp; **OR** &nbsp; `python app.py` &nbsp; command<br/>
 By default, a flask application runs on port `5000` on `localhost`. So head over to http://localhost:5000 and start using!
-### Step 4.1: :star:Star [this repository](https://github.com/AbhiSinha08/HotelManagementSystem) if you like our work⭐
