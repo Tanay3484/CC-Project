@@ -1,68 +1,260 @@
-from flask import Flask, render_template, url_for,request, redirect, flash
-from flask_mysqldb import MySQL
+# Main server app
 
+from flask import Flask, render_template, request, session, redirect, url_for, make_response
+from werkzeug.utils import secure_filename
+import os
+from os.path import join, dirname, realpath, basename
+import database
+import json
+from datetime import datetime
+import random
+import mysql
+import yagmail
+import smtplib
 
-app= Flask(__name__)
-app.secret_key= "Hello_Sajeeb"
+os.chdir(__file__.replace(basename(__file__), ''))
 
+mydb = mysql.connector.connect(
+  host='hms.cmvks4aqjsy6.us-east-1.rds.amazonaws.com',
+  user='admin',
+  password='ccproj123',
+  database = 'cc'
+)
+mycursor = mydb.cursor(buffered=True)
 
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'Gola2002@#!'
-app.config['MYSQL_DB'] = 'todo'
+x=random.randint(1,1000)
 
-mysql = MySQL(app)
+app = Flask(__name__)
+app.secret_key = 'the random string'
+UPLOAD_FOLDER = join(dirname(realpath(__file__)), 'static/uploads/')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
 @app.route('/')
+@app.route("/index",methods = ['POST','GET'])
 def index():
-    cur = mysql.connection.cursor()
-    cur.execute('SELECT * FROM tasks ORDER BY id DESC')
-    all_data = cur.fetchall()
-    mysql.connection.commit()
-    return render_template('index.html', all_data=all_data)
-
-@app.route('/submit_form', methods=['POST'])
-def submitted_form():
-    if request.method=='POST':
-        task = request.form['task']
-        cur = mysql.connection.cursor()
-        cur.execute('USE todo;')
-        cur.execute('INSERT INTO tasks (task) VALUES (%s)',[task])
-        mysql.connection.commit()
-        flash("Your task Successfully Saved.")
-        return redirect('/')
+    if not session.get('login'):
+        return render_template('login.html'),401
     else:
-        return 'Data is not Submitted.'
+        if session.get('isAdmin') :
+            # room = database.source("all_rooms.sql")
+            # types = database.source("all_room_types.sql")
+            # types = {type[0]: [type[1], type[2]] for type in types}
 
-@app.route('/delete/<string:task_id>')
-def delete(task_id):
-    cur = mysql.connection.cursor()
-    cur.execute('DELETE FROM tasks WHERE id = %s',[task_id])
-    mysql.connection.commit()
-    flash('Task Deleted Successfully.')
-    return redirect('/')
+            # customer = database.source("all_customers.sql")
+            # customer_dict = {c[0]: c[1] + " " + c[2] for c in customer}
 
+            # employees = database.source("all_employees.sql")
+            # jobs = database.source("all_jobs.sql")
+            # jobs = {job[0]: [job[1], job[2]] for job in jobs}
 
-@app.route('/edit/<string:task_id>')
-def edit_view(task_id):
-    cur = mysql.connection.cursor()
-    cur.execute('SELECT * FROM tasks WHERE id=%s',[task_id])
-    data = cur.fetchone()
-    mysql.connection.commit()
-    return render_template('edit.html',data=data)
+            # reservations = database.source("all_reservations.sql")
+            # return render_template("index.html", len_room=len(room),
+            #                         room=room, room_type=types,
+            #                         customer=customer, len_cust=len(customer),
+            #                         jobs=jobs, employees=employees,
+            #                         len_emp=len(employees), len_res=len(reservations),
+            #                         cust_dict=customer_dict, res=reservations)
+            return render_template('login.html')
 
-@app.route('/update_task', methods=['POST'])
-def update():
-    task_id = request.form['task_id']
-    task_title = request.form['task_name']
+@app.route("/login",methods = ['GET','POST'])
+def login():
+    if request.method=='POST' :
+        query = """SELECT * FROM login WHERE username = '%s'""" %(request.form['username'])
+        mycursor.execute(query)
+        res = mycursor.fetchall()
+        print(request.form['username'])
+        if mycursor.rowcount == 0:
+            return index()
+        if request.form['password'] != res[0][1]:
+            return render_template('login.html')
+        else:
+            session['login'] = True
+            session['username'] = request.form['username']
+            session['password'] = request.form['password']
+            session['isAdmin'] = (request.form['username']=='admin')
+            return render_template('send_otp.html')
+    return render_template('login.html')
 
-    cur = mysql.connection.cursor()
-    cur.execute('UPDATE tasks SET task=%s,created_date=NOW() WHERE id=%s',[task_title,task_id])
-    mysql.connection.commit()
-    flash('Task Updated Successfully.')
-    return redirect('/')
+@app.route('/send_otp', methods=['GET', 'POST'])
+def send_otp():
+    email = request.form.get('email')
+    print(email)
+    random.seed(x)
+    actual_otp=random.randint(100000, 999999)
+    otp = str(actual_otp)
+    message = 'Your OTP is ' + otp
+    user = 'shriyays25@gmail.com'
+    app_password = 'tfajdezvckpaybxl' # a token for gmail
+    to=email
+    subject = 'OTP'
+    content='Your OTP is ' + otp
+    with yagmail.SMTP(user, app_password) as yag:
+        yag.send(to, subject, content)
+        print('Sent email successfully')
+    return render_template('verify_otp.html', email=email, otp=otp)
+    return render_template('send_otp.html')
 
+@app.route('/verify_otp', methods=['POST'])
+def verify_otp():
+    user_otp = request.form['otp']
+    random.seed(x)
+    actual_otp=random.randint(100000, 999999)
+    if int(user_otp) == actual_otp:
+        room = database.source("all_rooms.sql")
+        types = database.source("all_room_types.sql")
+        types = {type[0]: [type[1], type[2]] for type in types}
 
-if __name__=="__main__":
-    app.run(debug=True)
+        customer = database.source("all_customers.sql")
+        customer_dict = {c[0]: c[1] + " " + c[2] for c in customer}
+
+        employees = database.source("all_employees.sql")
+        jobs = database.source("all_jobs.sql")
+        jobs = {job[0]: [job[1], job[2]] for job in jobs}
+
+        reservations = database.source("all_reservations.sql")
+        return render_template("index.html", len_room=len(room),
+                                room=room, room_type=types,
+                                customer=customer, len_cust=len(customer),
+                                jobs=jobs, employees=employees,
+                                len_emp=len(employees), len_res=len(reservations),
+                                cust_dict=customer_dict, res=reservations)
+        return render_template('index.html')
+    else:
+        return render_template('verify_otp.html',error='Invalid OTP')
+        
+# @app.route('/index')
+# def index():
+#     room = database.source("all_rooms.sql")
+#     types = database.source("all_room_types.sql")
+#     types = {type[0]: [type[1], type[2]] for type in types}
+
+#     customer = database.source("all_customers.sql")
+#     customer_dict = {c[0]: c[1] + " " + c[2] for c in customer}
+
+#     employees = database.source("all_employees.sql")
+#     jobs = database.source("all_jobs.sql")
+#     jobs = {job[0]: [job[1], job[2]] for job in jobs}
+
+#     reservations = database.source("all_reservations.sql")
+#     return render_template("index.html", len_room=len(room),
+#                             room=room, room_type=types,
+#                             customer=customer, len_cust=len(customer),
+#                             jobs=jobs, employees=employees,
+#                             len_emp=len(employees), len_res=len(reservations),
+#                             cust_dict=customer_dict, res=reservations)
+
+@app.route('/Customer', methods=['GET', 'POST'])
+def customer():
+    if request.method == 'POST':
+        fname = request.form['fname']
+        lname = request.form['lname']
+        address = request.form['address']
+        ph_no = request.form['ph_no']
+        database.source("new_customer.sql", fname, lname, address, ph_no, 0, output=False)
+        return redirect(url_for('index'))
+    return render_template("new_form.html", var="Customer")
+
+@app.route('/Employee', methods=['GET', 'POST'])
+def employee():
+    if request.method == 'POST':
+        fname = request.form['fname']
+        lname = request.form['lname']
+        address = request.form['address']
+        ph_no = request.form['ph_no']
+        job_id = request.form['job']
+        database.source("new_employee.sql", job_id, fname, lname, address, ph_no, output=False)
+        return redirect(url_for('index'))
+    jobs = database.source("all_jobs.sql")
+    return render_template("new_form.html", var="Employee", jobs=jobs)
+
+@app.route('/reservation', methods=['GET', 'POST'])
+def reservation():
+    if request.method == 'POST':
+        cust_ph_no = request.form['cust']
+        cust_id = int(database.source("get_customer.sql", cust_ph_no)[0][0])
+        room = int(request.form['room'])
+        date_format = "%Y-%m-%d"
+        in_date = datetime.strptime(request.form['in'], date_format)
+        out_date = datetime.strptime(request.form['out'], date_format)
+        days = out_date - in_date
+        days = days.days + 1
+        t_id = request.form['txn']
+        t_date = request.form['dated']
+        mode = request.form['mode']
+        amount = int(request.form['amount'])
+        status = int(request.form['status'])
+
+        res_id = database.source("new_reservation.sql",
+                                cust_id, room, t_id, in_date, out_date, days,
+                                output=False, lastRowId=True)
+        database.source("new_transaction.sql",
+                        t_id, None, res_id, t_date, amount, mode, 1, status, output=False)
+
+        return redirect(url_for('index'))
+    customer = database.source("all_customers.sql")
+    rooms = database.source("all_rooms.sql")
+    return render_template("reservation.html", customer=customer, rooms=rooms)
+
+@app.route('/t')
+def transaction_details():
+    id = request.args["id"]
+    details = database.source("get_transaction.sql", id)[0]
+    details = {"date": str(details[0]),
+                "amount": details[1],
+                "payment": details[2],
+                "status": details[3]
+            }
+    return json.dumps(details)
+
+@app.route('/del/<name>')
+def delete(name):
+    id = request.args["id"]
+    print(id)
+    if name == "room":
+        database.source("del_room.sql", id, output=False)
+    elif name == "res":
+        database.source("del_reservation.sql", id, output=False)
+    elif name == "cust":
+        database.source("del_customer.sql", id, output=False)
+    elif name == "emp":
+        database.source("del_employee.sql", id, output=False)
+    
+    return redirect(url_for('index'))
+
+@app.route('/import')
+def imp():
+    return render_template("import.html")
+
+@app.route('/import/<name>', methods=['POST'])
+def imprt(name):
+    file = request.files['file']
+    if file:
+        filename = secure_filename(file.filename)
+        filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filename)
+        database.import_from_csv(name, filename)
+    return redirect(url_for('imp'))
+
+@app.route('/export')
+def exp():
+    return render_template("export.html")
+
+@app.route('/export/<name>')
+def exprt(name):
+    filename = f"./static/exports/{name}.csv"
+    database.export_to_csv(name, filename)
+
+    response = make_response(filename, 200)
+    response.mimetype = "text/plain"
+    return response
+
+@app.route('/clear')
+def clear():
+    database.clear()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.secret_key = 'sec key'
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.run()
